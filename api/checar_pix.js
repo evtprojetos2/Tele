@@ -1,30 +1,28 @@
 export default async function handler(req, res) {
-    // Libera a catraca do CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
 
-    // Pega o ID do pagamento que o App enviou
-    const { id } = req.query;
-    
+    // Extração de ID ultra segura
+    let id = req.query ? req.query.id : null;
     if (!id) {
-        return res.status(400).json({ erro: "ID do pagamento não informado" });
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        id = url.searchParams.get('id');
     }
 
-    // O SEU COFRE BLINDADO
+    // Se o ID estiver vazio, bloqueamos antes que o Mercado Pago dê erro
+    if (!id || id === 'undefined' || id === 'null') {
+        return res.status(400).json({ erro: "ID do pagamento inválido ou ausente." });
+    }
+
     const ACCESS_TOKEN = "APP_USR-8126974382900936-122403-60778a71eea0559684f430ac912cc5dd-189761504";
 
     try {
-        // Pergunta ao Mercado Pago o status daquele ID
         const response = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
+            method: "GET",
             headers: { "Authorization": `Bearer ${ACCESS_TOKEN}` }
         });
-        
         const data = await response.json();
-        
-        // Devolve o status ('approved', 'pending', etc) para o App
         return res.status(response.status).json(data);
-        
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ erro: "Erro interno ao checar pagamento" });
+    } catch (e) {
+        return res.status(500).json({ erro: "Erro de conexão com o Mercado Pago." });
     }
 }
